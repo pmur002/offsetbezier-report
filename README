@@ -1,0 +1,19 @@
+
++ 'gridBezier' package (possibly temporary)
+  => proper Bezier curves 
+
++ hooks for better Bezier point calculation and offset calculation
+
+  Lots of different ways to do it ...
+
+  http://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node2.html
+  https://math.stackexchange.com/questions/465782/control-points-of-offset-bezier-curve
+
++ grid.offsetBezier() and offsetBezierGrob()
+
++ joins between Bezier curves on Bezier spline
+
++ curved end (and join) style ?
+
++ bezierWidth() width specification
+

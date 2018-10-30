@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="utf-8"?>
+<html>
+<head>
+  <style type="text/css">
+    @media print {
+      body { }
+      p.img { text-align: center; page-break-inside: avoid }
+      img.CC { display: inline }
+    }
+    @media screen {
+      body { max-width: 800px; margin: auto }
+      p.img { text-align: center }
+      img.CC { display: inline }
+    }
+    p.date {
+      font-size: smaller;
+      margin: 0;
+    }
+    p.versionHistory {
+      color: gray
+    }
+    p.versionHistory a {
+      color: gray
+    }
+    p.ref {
+      text-indent: -2em;
+      padding-left: 2em;
+    }
+  </style>
+
+  <!-- PDFjs code (more at the end of the document) -->
+  <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
+
+</head>
+<body>
+  <h1>Variable-Width Bezier Splines in R</h1>
+  <p>
+    <span style="font-style: italic">by Paul Murrell</span>
+    <a href="http://orcid.org"><img alt="" src="https://www.stat.auckland.ac.nz/~paul/ORCID/ORCiD.png" style="width: 16px; height: 16px; vertical-align: middle" /></a> <span style="font-family: mono; font-size: small"><a href="http://orcid.org/0000-0002-3224-8858">http://orcid.org/0000-0002-3224-8858</a></span>
+  </p>
+  <p class="date">
+    Version 1:
+    <rcode echo="FALSE" results="asis">
+cat(format(Sys.Date(), "%A %d %B %Y"))
+    </rcode>
+  </p>
+
+  <rcode id="init" echo="FALSE" message="FALSE" results="hide">
+opts_chunk$set(comment=" ", tidy=FALSE, dev="svg")
+options(width=100)
+## For wonky desktop set up
+options(bitmapType="cairo")
+  </rcode>
+  <rcode echo="FALSE">
+    library(grid)
+  </rcode>
+
+  <hr/>
+  <p>
+    <a rel="license"
+    href="http://creativecommons.org/licenses/by/4.0/"><img class="CC"
+    alt="Creative Commons License" style="border-width:0"
+    src="https://i.creativecommons.org/l/by/4.0/88x31.png"/></a><br/><span
+    xmlns:dct="http://purl.org/dc/terms/"
+    property="dct:title">This document</span>
+    by <span xmlns:cc="http://creativecommons.org/ns#"
+    property="cc:attributionName">Paul
+    Murrell</span> is licensed under a <a rel="license"
+    href="http://creativecommons.org/licenses/by/4.0/">Creative
+    Commons Attribution 4.0 International License</a>.
+  </p>
+  <hr/>
+  <p>
+    This report describes support for a new type of variable-width line
+    in the 'vwline' package for R that
+    is based on Bezier curves.  There is also a new function for 
+    specifying the width of a variable-width line based on Bezier curves and
+    there is a new linejoin and lineend style,
+    called "extend", that is available
+    when both the line and the width of the line
+    are  based on Bezier curves.  This report also introduces
+    a small 'gridBezier' package for drawing Bezier curves in R.
+  </p>
+
+  <toc/>
+
+  <h2><a name="bezier">Bezier curves and Bezier splines</a></h2>
+  <p>
+    A <a href="https://en.wikipedia.org/wiki/B%C3%A9zier_curve">Bezier curve</a>
+    (specifically a cubic Bezier curve) is 
+    a parametric curve based on four control points.
+    The curve begins at the first control point with its slope 
+    tangent to the line between the first two control points and the curve
+    ends at the fourth control point with its slope tangent to the
+    line between the last two control points.
+    In the diagram below, the four grey circles are control points
+    and the black line is a Bezier curve relative to those control points.
+  </p>
+  <rcode echo="FALSE" fig.width="2" fig.height="2">
+library(gridBezier)
+x <- c(.2, .4, .6, .8)
+y <- c(.4, .7, .7, .4)
+grid.circle(x, y, r=unit(1, "mm"), gp=gpar(col=NA, fill="grey"))
+grid.Bezier(x, y, gp=gpar(lwd=3))
+  </rcode>
+  <p>
+    A Bezier spline is a curve that consists of several Bezier curves
+    strung together. For example, in the diagram below,
+    a Bezier spline is constructed from two Bezier curves.
+    There are seven control points, but
+    the fourth control point of the first curve is
+    also the first control point of the second curve.
+  </p>
+  <rcode echo="FALSE" fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .1, .1, .4)
+grid.circle(x, y, r=unit(1, "mm"), gp=gpar(col=NA, fill="grey"))
+grid.Bezier(x, y, gp=gpar(lwd=3))
+  </rcode>
+  <p>
+    The control points in the previous example have been carefully chosen
+    so that the last two points of the first curve are collinear with
+    the first two points of the second curve.  This means that the
+    Bezier spline is smooth overall because the slopes of the
+    two Bezier curves are the same where they meet (at control point four).
+    This does not have to be the case.  In the example below, the Bezier
+    spline has a sharp corner at control point four.
+  </p>
+  <rcode echo="FALSE" fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .7, .7, .4)
+grid.circle(x, y, r=unit(1, "mm"), gp=gpar(col=NA, fill="grey"))
+grid.Bezier(x, y, gp=gpar(lwd=3))
+  </rcode>
+
+  <h2><a name="gridbezier">The 'gridBezier' package</a></h2>
+  <p>
+    The 'grid' package (<a href="#R"/>) provides the 
+    <code>grid.bezier</code> function for drawing Bezier curves,
+    but that function has two major drawbacks:  the curve is only
+    an X-spline approximation to a Bezier curve;  and there is no
+    support for drawing a Bezier spline.  In the diagram below,
+    the true Bezier curve is represented by a semitransparent blue line
+    and the X-spline approximation that is produced by 
+    <code>grid.bezier</code> is represented by a semitransparent red line.
+  </p>
+  <rcode echo="FALSE" fig.width="2" fig.height="2">
+library(grid)
+x <- c(.2, .4, .6, .8)
+y <- c(.4, .7, .7, .4)
+grid.circle(x, y, r=unit(1, "mm"), gp=gpar(col=NA, fill="grey"))
+grid.Bezier(x, y, gp=gpar(lwd=3, col=rgb(0,0,1,.5)))
+grid.bezier(x, y, gp=gpar(lwd=3, col=rgb(1,0,0,.5)))
+  </rcode>
+  <p>
+    The 'gridBezier' package (<a href="#pkg:gridBezier"/>) 
+    is a new package that provides
+    an improved implementation of Bezier curves via the 
+    <code>grid.Bezier</code> function.  This function also supports
+    Bezier splines and has an <code>open</code> argument to allow
+    for closed Bezier splines (the first control point is also the
+    last control point in the spline).  The following code shows the
+    function in action.  The first spline is just a single Bezier curve 
+    (through four control points), the second spline is two Bezier
+    curves (seven control points), and the third spline is a closed
+    spline (six control points with the first reused as the last).
+  </p>
+  <rcode>
+library(gridBezier)
+  </rcode>
+  <rcode fig.width="6" fig.height="2">
+x <- c(.2, .2, .8, .8, .8, .2)/3
+y <- c(.5, .8, .8, .5, .2, .2)
+grid.circle(x, y, r=unit(1, "mm"), gp=gpar(col=NA, fill="grey"))
+grid.Bezier(x[1:4], y[1:4], gp=gpar(lwd=3))
+grid.Bezier(x[c(1:6, 1)] + 1/3, y[c(1:6, 1)], gp=gpar(lwd=3))
+grid.Bezier(x[1:6] + 2/3, y[1:6], open=FALSE, gp=gpar(lwd=3, fill="grey"))
+  </rcode>
+
+  <h2><a name="offsetbezier">The <code>grid.offsetBezier()</code> function</a></h2>
+  <p>
+    The 'vwline' package (<a href="#pkg:vwline"/>)
+    has several functions for drawing variable-width
+    lines (<a href="#vwline-intro"/>).
+    The function <code>grid.offsetBezier</code> has been added to
+    the 'vwline' package to provide a variable-width line based on a
+    Bezier spline.
+  </p>
+  <p>
+    The main arguments to  <code>grid.offsetBezier</code> are <code>x</code>
+    and <code>y</code> values that specify control points
+    for a Bezier spline and <code>w</code>, which specifies a width for
+    the Bezier spline.  The following code describes 
+    a Bezier spline, consisting of two Bezier curves, 
+    with width starting at zero and increasing smoothly to 1cm.
+  </p>
+  <rcode>
+library(vwline)
+  </rcode>
+  <rcode fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .1, .1, .4)
+grid.offsetBezier(x, y, w=unit(0:1, "cm"))
+  </rcode>
+
+  <h2><a name="bezierwidth">The <code>BezierWidth()</code> function</a></h2>
+  <p>
+    The width of a variable-width Bezier spline is described
+    by specifying widths at different positions along the line.
+    In the example above, <code>unit(0:1, "cm")</code> is interpreted
+    as 0cm at the start of the line and 1cm at the end of the line.
+  </p>
+  <p>
+    A more detailed specification of the line width can be given
+    by calling the <code>widthSpline</code> function.
+    This allows us to described the width as an X-spline with
+    control points located in a two-dimensional plane where the
+    x-dimension represents distance along the line and the y-dimension 
+    represents the
+    width of the line.  The following expression shows a simple call
+    to the <code>widthSpline</code> function that generates an X-spline with
+    control
+    points at the start and end of the line with widths 0cm and 1cm
+    respectively.  The diagram below the expression shows the 
+    width spline that is generated (the black line) and the curve
+    below that shows the resulting variable-width line when that
+    width specification is applied to a variable-width Bezier spline.
+  </p>
+  <rcode eval="FALSE">
+widthSpline(0:1, "cm", d=0:1)
+  </rcode>
+  <rcode echo="FALSE" fig.width="2" fig.height="1">
+grid.lines(0:1, .5, gp=gpar(col="grey"))
+grid.xspline(0:1, unit(.5, "npc") + unit(0:1, "cm"))
+  </rcode>
+  <rcode echo="FALSE" fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .1, .1, .4)
+grid.offsetBezier(x, y, w=unit(0:1, "cm"))
+  </rcode>
+  <p>
+    The next expression shows a more complex <code>widthSpline</code>
+    call that produces a width that decreases then increases.
+    This width spline is shown applied to a variable-width Bezier spline 
+    below the code and diagram.
+  </p>
+  <rcode eval="FALSE">
+widthSpline(c(1, 0, 1), "cm", d=c(0, .7, 1), shape=1)
+  </rcode>
+  <rcode echo="FALSE" fig.width="2" fig.height="1">
+grid.lines(0:1, .5, gp=gpar(col="grey"))
+grid.xspline(c(0, .7, 1), unit(.5, "npc") + unit(c(1, 0, 1), "cm"), shape=1)
+  </rcode>
+  <rcode echo="FALSE" fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .1, .1, .4)
+grid.offsetBezier(x, y, w=widthSpline(c(1, 0, 1), "cm", d=c(0, .7, 1), shape=1))
+  </rcode>
+  
+  <p>
+    A new <code>BezierWidth</code> function has been added to 'vwline'
+    to allow the width of a variable-width Bezier spline to 
+    be described using a Bezier curve instead of an X-spline.
+    The following code shows how this function can be used to control
+    the line width of a variable-width Bezier spline.  
+  </p>
+  <rcode eval="FALSE">
+BezierWidth(c(1, 0, 0, 1), "cm", d=c(0, .5, .7, 1))
+  </rcode>
+  <rcode echo="FALSE" fig.width="2" fig.height="1">
+grid.lines(0:1, .5, gp=gpar(col="grey"))
+grid.Bezier(c(0, .5, .7, 1), 
+            unit(.5, "npc") + unit(c(1, 0, 0, 1), "cm"))
+  </rcode>
+  <rcode echo="FALSE" fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .1, .1, .4)
+grid.offsetBezier(x, y, w=BezierWidth(c(1, 0, 0, 1), "cm", d=c(0, .5, .7, 1)))
+  </rcode>
+  
+  <h2><a name="endsjoins">Line ends and line joins</a></h2>
+  <p>
+    We saw in the <a href="#bezier"/> Section that a Bezier spline
+    may have a sharp corner at the juncture between different
+    Bezier curves (the example is reproduced below).
+  </p>
+  <rcode echo="FALSE" fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .7, .7, .4)
+grid.Bezier(x, y, gp=gpar(lwd=3))
+  </rcode>
+  <p>
+    This means that we need to be able to select a line join style for 
+    Bezier splines of this sort.  We also need to be able to specify
+    a line end style and both of these become especially relevant
+    when we are working with thick lines.
+  </p>
+  <p>
+    The <code>grid.offsetBezier</code> 
+    function has arguments <code>linejoin</code> and
+    <code>lineend</code> (and <code>mitrelimit</code>) to
+    allow control of line join and line end styles.
+    The following code demonstrates three different styles that
+    are offered by the 'vwline' package.
+    The top spline has "mitre" line joins and ends, the middle spline
+    has "round" line joins and ends, and the bottom spline
+    has "bevel" joins and "square" ends.
+    It is also possible to have "butt" ends, which are just shorter
+    versions of "square" ends.
+  </p>
+  <rcode fig.width="6" fig.height="3">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .6, .6, .4, .6, .6, .4)
+w <- widthSpline(c(2, 8, 8, 10), "mm", d=c(0, .25, .75, 1), shape=0)
+grid.offsetBezier(x, y + .3, w, 
+                  linejoin="mitre", lineend="mitre", mitrelimit=10)
+grid.offsetBezier(x, y, w, 
+                  linejoin="round", lineend="round")
+grid.offsetBezier(x, y - .3, w, 
+                  linejoin="bevel", lineend="square")
+  </rcode>
+
+  <p>
+    When the line width has been specified using <code>BezierWidth</code>,
+    for <code>grid.offsetBezier</code>,
+    a new line join and line end style called <code>"extend"</code>
+    has been added.  This style is similar to the <code>"mitre"</code> style,
+    but it extends the curve of the line (and the width), rather than
+    just extending the tangent of the line boundaries.
+    In the following code, we draw variable-width lines similar 
+    to the previous example, but with a little more curvature.
+    The top spline has "mitre" joins and ends and the bottom spline
+    has "extend" joins and ends.
+  </p>
+  <rcode fig.width="6" fig.height="3">
+x <- c(.1, .15, .35, .4, .45, .65, .7)
+y <- c(.4, .6, .6, .4, .6, .6, .4)
+w <- BezierWidth(c(2, 8, 8, 10), "mm", d=c(0, .25, .75, 1))
+grid.offsetBezier(x, y + .25, w, 
+                  linejoin="mitre", lineend="mitre", mitrelimit=10)
+grid.offsetBezier(x, y - .25, w, 
+                  linejoin="extend", lineend="extend", mitrelimit=10)
+  </rcode>
+  <p>
+    The <code>mitrelimit</code> has been raised (from the default value of
+    4) for both splines above so that the ends and joins will be "pointy"
+    rather than being chopped off to "bevel" joins or "square" ends
+    (which is what would happen with a lower <code>mitrelimit</code>).
+    Even so, the "extend" line join in the bottom line has fallen back
+    to a "bevel" join because the extended curve edges at the join
+    do not actually intersect. The right-hand ends of both lines have
+    fallen back to "square" ends because the width of the line is
+    diverging at the right-hand end in both cases.  However, notice
+    that the fall-back "square" right-hand end for the "extend" style
+    still has curved edges (whereas the fall-back "square" right-hand
+    end for the "mitre" style has straight edges).
+  </p>
+
+  <h2><a name="">Bezier curve offsets</a></h2>
+  <p>
+    A variable-width Bezier line is drawn using the following 
+    algorithm:
+  </p>
+  <ol>
+    <li>
+      Generate points along the Bezier spline (using 
+      <code>BezierPoints</code> from the 'gridBezier' package).
+    </li>
+    <li>
+      Generate normals at each point on the Bezier spline
+      (using <code>BezierNormal</code> from the 'gridBezier' package).
+    </li>
+    <li>
+      Calculate widths at each point on the Bezier spline 
+      (by generating points on the width spline and interpolating
+       to the points on the Bezier spline).
+    </li>
+    <li>
+      Multiply the width by the normal to get points on the edge of 
+      the variable-width line (the Bezier offset curve).
+    </li>
+    <li>
+      Add line ends and line joins as described in 
+      <a href="#murrell-ends-and-joins"/>.
+    </li>
+  </ol>
+  <p>
+    The success of this algorithm depends on selecting a good set
+    of points along the Bezier spline in Step 1, so that the Bezier curve,
+    and particularly its offset curve, are smooth.
+  </p>
+  <p>
+    It is easy to demonstrate a poor set of points, by specifying 
+    only 10 points along a Bezier curve, as shown below.
+  </p>
+  <rcode fig.width="2" fig.height="2">
+grid.offsetBezier(c(.2, .2, .8, .8), c(.2, .8, .8, .2), 
+                  w=unit(c(0, 1, 1, 0), "cm"), stepFn=nSteps(10))
+  </rcode>
+  <p>
+    The <code>grid.offsetBezier</code> function
+    provides the <code>stepFn</code> argument so that we can
+    specify a different function for generating points along the
+    curve.  This function is called with arguments <code>x</code>
+    and <code>y</code> (the control points for the curve) and 
+    <code>range</code>, which describes the range of <code>t</code>
+    for which we need to generate points.
+  </p>
+  <p>
+    The default <code>nSteps(100)</code> function does a reasonable job
+    in many cases because it generates 100 steps along the curve.
+    Furthermore, because the steps are in terms of <code>t</code>,
+    there is automatically a higher density of points at places of
+    higher curvature.
+  </p>
+  <p>
+    Nevertheless, there are still extreme cases where this simple approach
+    will not produce a smooth result.  The <code>nSteps</code> approach 
+    is also far from optimal as it does not take into account the overall
+    physical size of the curve on the page, so in many situations
+    it is likely to generate
+    more points than are required.
+    A <a href="http://antigrain.com/research/adaptive_bezier/index.html#PAGE_ADAPTIVE_BEZIER">research article from the Anti-Grain Geometry Project</a>
+    discusses several more sophisticated algorithms for calculating step sizes.
+  </p>
+
+  <h2><a name="edgepoints">Edge points on a variable-width Bezier spline</a></h2>
+  <p>
+    As with all other types of variable-width lines in the 'vwline' package,
+    there is an <code>edgePoints</code> method for grobs that are 
+    generated by <code>grid.offsetBezier</code>, which allows us to
+    generate points on the boundary of the variable-width line.
+  </p>
+  <p>
+    The following code provides a simple demonstration.  We generate 
+    a variable-width Bezier spline grob, define an "origin", 
+    then ask for points on the edge starting from
+    closest point to the origin and travelling half way around the 
+    boundary.
+  </p>
+  <rcode fig.width="4" fig.height="2">
+x <- c(.1, .2, .3, .4, .5, .6, .7)
+y <- c(.4, .7, .7, .4, .1, .1, .4)
+ob <- offsetBezierGrob(x, y, 
+                       w=BezierWidth(c(1, 0, 0, 1), "cm", d=c(0, .5, .7, 1)),
+                       gp=gpar(col=NA, fill="grey"))
+x0 <- unit(.5, "npc")
+y0 <- unit(.9, "npc")
+border <- edgePoints(ob, seq(0, .5, length.out=100), x0, y0)
+grid.draw(ob)
+grid.circle(x0, y0, r=unit(1, "mm"), gp=gpar(fill="black"))
+grid.segments(x0, y0, border$x[1], border$y[1],
+              gp=gpar(lty="dotted"))
+grid.lines(border$x, border$y, gp=gpar(col="red", lwd=3))
+  </rcode>
+  <p>
+    This edge information can be useful for further drawing
+    or calculations.  For example, we can use it to position other
+    graphical output relative to the variable-width line or to export
+    the outline to another graphics system for rendering.  
+  </p>
+
+  <h2><a name="summary">Summary</a></h2>
+  <p>
+    The 'gridBezier' package provides the <code>grid.Bezier</code> function
+    for drawing Bezier curves in R, which is more accurate and more flexible
+    than the <code>grid.bezier</code> function from 'grid'.
+    A <code>grid.offsetBezier</code> function has been added to the 'vwline'
+    package to allow drawing of variable-width Bezier splines.
+    There is also a new <code>BezierWidth</code> function for describing
+    the width of a variable-width line in terms of a Bezier spline.
+    When a variable-width Bezier spline is drawn with a 
+    <code>BezierWidth</code> width, there is a new line end and line join
+    style called <code>"extend"</code> that produces a better result
+    than the <code>"mitre"</code> style, especially when the curvature 
+    of the line is high.
+  </p>
+
+  <h2><a name="discussion">Discussion</a></h2>
+  <p>
+    Bezier curves are a very common way of describing curves in
+    computer graphics, so it is useful to have the ability to draw them
+    in R.  The contribution of the 'gridBezier' function is to draw them 
+    properly (compared to the approximation offered by 
+    <code>grid.bezier</code> from the 'grid' package).
+  </p>
+  <p>
+    The 'knotR' package (<a href="#pkg:knotR"/>) provides functions
+    for generating points (and derivatives and other things) on cubic
+    Bezier curves, but it does
+    not provide functions for rendering the curves with 'grid'.  The
+    implementation of Bezier curve functions is also sufficiently 
+    straightforward that it makes more sense to implement them 
+    again in 'gridBezier' rather than add 'knotR' as a dependency.
+  </p>
+  <p>
+    The 'bezier' package (<a href="#pkg:bezier"/>)
+    also provides functions for generating points
+    on Bezier curves, but is much more general (e.g., it allows for
+    Bezier curves of any degree, not just cubic Bezier curves).
+    Again, reimplementing the straightforward cubic Bezier calculations
+    made more sense than imposing a package dependency and 
+    the 'bezier' package does not provide any support for
+    'grid' rendering.
+  </p>
+  <p>
+    Drawing variable-width Bezier splines is supported in 
+    other graphics systems.  For example, the following MetaPost 
+    code produces a variable-width line using the <code>penpos</code>
+    macro to specify a different pen size and rotation at different points
+    on a path.
+  </p>
+  <rcode echo="FALSE">
+cat(readLines("vwline.mp"), sep="\n")
+system("mpost -s 'outputformat=\"svg\"' -s 'outputtemplate=\"%j.svg\"' vwline.mp")
+  </rcode>
+  <p>
+    <img src="vwline.svg"/>
+  </p>
+  <p>
+    The width specification is more flexible in 'vwline' and there is
+    more control over line join and line end styles.
+  </p>
+  <p>
+    Sophisticated drawing programs like 
+    <a href="https://inkscape.org/">Inkscape</a> and 
+    <a href="https://www.adobe.com/nz/products/illustrator.html">Adobe Illustrator</a>
+    provide tools for variable-width lines
+    (called "power stroke" and "width tool" 
+    respectively).  The main difference of course is that these programs
+    are interactive and mouse driven rather than code-based like R
+    graphics.
+  </p>
+  <p>
+    The new <code>"extend"</code> line join and line end style
+    was inspired by an 
+    <a href="http://wiki.inkscape.org/wiki/images/LGM2012_-_Powerstroke.pdf and VWline/Resources/LGM2012_-_Powerstroke.pdf">Inkscape power stroke proposal</a>
+    (see slide 8).  However, only some of that proposal has been implemented
+    in Inkscape
+    (as of Inkscape version 0.92.3).  For example, there are
+    "extrapolated" line joins, but nothing similar for line ends.
+  </p>
+<!--
+  <p>
+    Image of Inkscape PowerStroke with ExtrapolatedArc join
+    There is also a Spiro join (which makes a "slightly pointier" rounded corner)
+    There appears to be no "extrapolated" end option (just butt, round, square, plus a "peak" option which is sort of like a pointy square end)
+    Neither is there a "mitre" end option!
+    This is Inkscape 0.92.3 on Windows 
+    <img src="inkscape-powerstroke-extrapolated-join.png"/>
+  </p>
+-->
+
+  <h2><a name="requirements">Technical requirements</a></h2>
+  <p>
+    The examples and discussion in this document relate to 
+    <a href="https://github.com/pmur002/vwline/releases/tag/v0.2-0">version
+    0.2-0</a> of the 'vwline' package, and
+    <a href="https://github.com/pmur002/gridbezier/releases/tag/v1.0-0">version
+    1.0-0</a> of the 'gridBezier' package.
+  </p>
+  <p>
+    This report was generated within a Docker container
+    (see <a href="#Resources">Resources</a> section below).
+  </p>
+
+  <h2><a name="Resources">Resources</a></h2>
+  <ul>
+    <li>
+      The <a href="offsetbezier.cml">raw source file</a> for this
+      report, a <a href="offsetbezier.xml">valid XML</a>
+      transformation of the source file, a <a
+      href="offsetbezier.Rhtml">'knitr' document</a> generated from
+      the XML file, 
+      two <a href="toc.R">R</a> <a href="bib.R">files</a> and
+      the <a href="offsetbezier.bib">bibtex file</a>
+      that are used to generate the table of contents and reference sections,
+      two <a href="common.xsl">XSL</a> <a
+      href="knitr.xsl">files</a> and an 
+      <a href="knit.R">R file</a> that are used to transform the XML to
+      the 'knitr' document, and a <a href="Makefile">Makefile</a> that
+      contains code for the other transformations and coordinates
+      everything.  
+      These materials are also available
+      on <a href="https://github.com/pmur002/offsetbezier-report/releases/tag/v1">github</a>.
+    </li>
+    <li>
+      This report was generated within a 
+      <a href="https://www.docker.com/">Docker</a> container.
+      The Docker command to build the report is included in the Makefile above.
+      The Docker image for the container is available from
+      <a href="https://hub.docker.com/r/pmur002/offsetbezier/">Docker Hub</a>;
+      alternatively, the image can be rebuilt from its 
+      <a href="Dockerfile">Dockerfile</a>.
+    </li>
+  </ul>
+
+  <h2>How to cite this document</h2>
+  <p>
+    Murrell, P. (2018). "Variable-Width Bezier Splines in R" 
+    Technical Report 2018-??, Department of Statistics, The University of Auckland. 
+    [ <a href="how-to-cite.bib">bib</a> ] 
+  </p>
+
+  <h2><a name="references">References</a></h2>
+  <ul style="list-style-type: none">
+    <li>
+      <a name="R"/>
+    </li>
+    <li>
+      <a name="pkg:gridBezier"/>
+    </li>
+    <li>
+      <a name="pkg:vwline"/>
+    </li>
+    <li>
+      <a name="vwline-intro"/>
+    </li>
+    <li>
+      <a name="murrell-ends-and-joins"/>
+    </li>
+    <li>
+      <a name="pkg:knotR"/>
+    </li>
+    <li>
+      <a name="pkg:bezier"/>
+    </li>
+  </ul>
+
+  <hr/>
+  <p>
+    <a rel="license"
+    href="http://creativecommons.org/licenses/by/4.0/"><img class="CC"
+    alt="Creative Commons License" style="border-width:0"
+    src="https://i.creativecommons.org/l/by/4.0/88x31.png"/></a><br/><span
+    xmlns:dct="http://purl.org/dc/terms/"
+    property="dct:title">This document</span>
+    by <span xmlns:cc="http://creativecommons.org/ns#"
+    property="cc:attributionName">Paul
+    Murrell</span> is licensed under a <a rel="license"
+    href="http://creativecommons.org/licenses/by/4.0/">Creative
+    Commons Attribution 4.0 International License</a>.
+  </p>
+
+  <script><![CDATA[
+  // Use async/await so that PDF files loaded one at a time
+  async function loadPDFs() {
+    var pdfcanvas = document.querySelectorAll("canvas.pdf");
+    var i;
+    for (i=0; i < pdfcanvas.length; i++) {
+        var canvas = pdfcanvas[i];
+        var canvasid = canvas.id;
+        var pdf = await pdfjsLib.getDocument(canvasid + '.pdf');
+        var page = await pdf.getPage(1);
+        var scale = canvas.getAttribute("scale");
+        if (!scale) {
+            scale = 100/72;
+        }
+        var viewport = page.getViewport(scale);
+        var context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        var renderContext = {
+            canvasContext: context,
+            viewport: viewport
+        };
+        page.render(renderContext);
+    }
+  }
+  loadPDFs();
+  ]]>
+  </script>
+
+</body>
+</html>
