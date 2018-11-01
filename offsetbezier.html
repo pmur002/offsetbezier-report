@@ -105,7 +105,7 @@
     </p>
     <p class="date">
     Version 1:
-Tuesday 30 October 2018
+Thursday 01 November 2018
   </p>
 
 
@@ -227,7 +227,8 @@ Tuesday 30 October 2018
     function in action.  The first spline is just a single Bezier curve 
     (through four control points), the second spline is two Bezier
     curves (seven control points), and the third spline is a closed
-    spline (six control points with the first reused as the last).
+    spline (six control points with the first reused as the last)
+    that has been filled.
   </p>
 <div class="chunk" id="unnamed-chunk-7"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(gridBezier)</span>
 </pre></div>
@@ -257,7 +258,8 @@ Tuesday 30 October 2018
     for a Bezier spline and <code>w</code>, which specifies a width for
     the Bezier spline.  The following code describes 
     a Bezier spline, consisting of two Bezier curves, 
-    with width starting at zero and increasing smoothly to 1cm.
+    with the width of the spline 
+    starting at zero and increasing smoothly to 1cm.
   </p>
 <div class="chunk" id="unnamed-chunk-9"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(vwline)</span>
 </pre></div>
@@ -300,7 +302,7 @@ Tuesday 30 October 2018
     <p>
     The next expression shows a more complex <code>widthSpline</code>
     call that produces a width that decreases then increases.
-    This width spline is shown applied to a variable-width Bezier spline 
+    This width spline is applied to a variable-width Bezier spline 
     below the code and diagram.
   </p>
 <div class="chunk" id="unnamed-chunk-14"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">widthSpline</span><span class="hl std">(</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">),</span> <span class="hl str">&quot;cm&quot;</span><span class="hl std">,</span> <span class="hl kwc">d</span><span class="hl std">=</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">.7</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">),</span> <span class="hl kwc">shape</span><span class="hl std">=</span><span class="hl num">1</span><span class="hl std">)</span>
@@ -505,7 +507,7 @@ Tuesday 30 October 2018
     </h2>
     <p>
     The 'gridBezier' package provides the <code>grid.Bezier</code> function
-    for drawing Bezier curves in R, which is more accurate and more flexible
+    for drawing Bezier curves in R.  This is more accurate and more flexible
     than the <code>grid.bezier</code> function from 'grid'.
     A <code>grid.offsetBezier</code> function has been added to the 'vwline'
     package to allow drawing of variable-width Bezier splines.
@@ -606,8 +608,8 @@ Tuesday 30 October 2018
     </h2>
     <p>
     The examples and discussion in this document relate to 
-    <a href="https://github.com/pmur002/vwline/releases/tag/v0.2-0">version
-    0.2-0</a> of the 'vwline' package, and
+    <a href="https://github.com/pmur002/vwline/releases/tag/v0.2-1">version
+    0.2-1</a> of the 'vwline' package, and
     <a href="https://github.com/pmur002/gridbezier/releases/tag/v1.0-0">version
     1.0-0</a> of the 'gridBezier' package.
   </p>
@@ -648,7 +650,7 @@ Tuesday 30 October 2018
     <h2>How to cite this document</h2>
     <p>
     Murrell, P. (2018). "Variable-Width Bezier Splines in R" 
-    Technical Report 2018-??, Department of Statistics, The University of Auckland. 
+    Technical Report 2018-11, Department of Statistics, The University of Auckland. 
     [ <a href="how-to-cite.bib">bib</a> ] 
   </p>
     <h2>

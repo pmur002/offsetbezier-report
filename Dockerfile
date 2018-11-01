@@ -29,4 +29,4 @@ RUN Rscript -e 'library(devtools); install_version("xml2", "1.1.1", repos="https
 
 # The main report package(s)
 RUN Rscript -e 'library(devtools); install_github("pmur002/gridBezier@v1.0-0")'
-RUN Rscript -e 'library(devtools); install_github("pmur002/vwline/pkg@v0.2-0")'
+RUN Rscript -e 'library(devtools); install_github("pmur002/vwline/pkg@v0.2-1")'

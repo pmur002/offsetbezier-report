@@ -163,7 +163,8 @@ grid.bezier(x, y, gp=gpar(lwd=3, col=rgb(1,0,0,.5)))
     function in action.  The first spline is just a single Bezier curve 
     (through four control points), the second spline is two Bezier
     curves (seven control points), and the third spline is a closed
-    spline (six control points with the first reused as the last).
+    spline (six control points with the first reused as the last)
+    that has been filled.
   </p>
   <rcode>
 library(gridBezier)
@@ -192,7 +193,8 @@ grid.Bezier(x[1:6] + 2/3, y[1:6], open=FALSE, gp=gpar(lwd=3, fill="grey"))
     for a Bezier spline and <code>w</code>, which specifies a width for
     the Bezier spline.  The following code describes 
     a Bezier spline, consisting of two Bezier curves, 
-    with width starting at zero and increasing smoothly to 1cm.
+    with the width of the spline 
+    starting at zero and increasing smoothly to 1cm.
   </p>
   <rcode>
 library(vwline)
@@ -241,7 +243,7 @@ grid.offsetBezier(x, y, w=unit(0:1, "cm"))
   <p>
     The next expression shows a more complex <code>widthSpline</code>
     call that produces a width that decreases then increases.
-    This width spline is shown applied to a variable-width Bezier spline 
+    This width spline is applied to a variable-width Bezier spline 
     below the code and diagram.
   </p>
   <rcode eval="FALSE">
@@ -463,7 +465,7 @@ grid.lines(border$x, border$y, gp=gpar(col="red", lwd=3))
   <h2><a name="summary">Summary</a></h2>
   <p>
     The 'gridBezier' package provides the <code>grid.Bezier</code> function
-    for drawing Bezier curves in R, which is more accurate and more flexible
+    for drawing Bezier curves in R.  This is more accurate and more flexible
     than the <code>grid.bezier</code> function from 'grid'.
     A <code>grid.offsetBezier</code> function has been added to the 'vwline'
     package to allow drawing of variable-width Bezier splines.
@@ -554,8 +556,8 @@ system("mpost -s 'outputformat=\"svg\"' -s 'outputtemplate=\"%j.svg\"' vwline.mp
   <h2><a name="requirements">Technical requirements</a></h2>
   <p>
     The examples and discussion in this document relate to 
-    <a href="https://github.com/pmur002/vwline/releases/tag/v0.2-0">version
-    0.2-0</a> of the 'vwline' package, and
+    <a href="https://github.com/pmur002/vwline/releases/tag/v0.2-1">version
+    0.2-1</a> of the 'vwline' package, and
     <a href="https://github.com/pmur002/gridbezier/releases/tag/v1.0-0">version
     1.0-0</a> of the 'gridBezier' package.
   </p>
@@ -598,7 +600,7 @@ system("mpost -s 'outputformat=\"svg\"' -s 'outputtemplate=\"%j.svg\"' vwline.mp
   <h2>How to cite this document</h2>
   <p>
     Murrell, P. (2018). "Variable-Width Bezier Splines in R" 
-    Technical Report 2018-??, Department of Statistics, The University of Auckland. 
+    Technical Report 2018-11, Department of Statistics, The University of Auckland. 
     [ <a href="how-to-cite.bib">bib</a> ] 
   </p>
 
